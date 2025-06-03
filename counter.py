@@ -48,7 +48,9 @@ def parse_log_file(input_file, output_file):
                                 if "Not Blacklisting" in next_line:
                                     status = "not_blacklisted"
                                     # Ищем строки с информацией о скрапинге, теме и augmented queries
-                                    for j in range(i + 2, min(i + 15, len(lines))):  # увеличил диапазон поиска до 15 строк
+                                    # Ищем до следующей строки с Incoming request
+                                    j = i + 2
+                                    while j < len(lines) and "Incoming request" not in lines[j]:
                                         if "Received scraping request" in lines[j]:
                                             scraping_match = re.search(scraping_pattern, lines[j])
                                             if scraping_match:
@@ -67,6 +69,7 @@ def parse_log_file(input_file, output_file):
                                                 aug_match = re.search(augmented_pattern, lines[j])
                                                 if aug_match:
                                                     augmented_query2 = aug_match.group(1).strip()
+                                        j += 1
                                 elif "Blacklisting" in next_line:
                                     status = "blacklisted"
                             
