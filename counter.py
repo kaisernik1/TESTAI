@@ -14,15 +14,16 @@ def parse_log_file(input_file, output_file):
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             # Записываем заголовки
-            writer.writerow(['UID', 'Timestamp'])
+            writer.writerow(['UID', 'Timestamp', 'Status'])
             
             # Читаем и обрабатываем лог-файл
             with open(input_file, 'r', encoding='utf-8') as logfile:
-                line_count = 0
+                lines = logfile.readlines()
+                line_count = len(lines)
                 match_count = 0
                 
-                for line in logfile:
-                    line_count += 1
+                for i in range(len(lines)):
+                    line = lines[i]
                     if "Incoming request" in line:
                         print(f"Найдена строка с запросом: {line.strip()}")
                         match = re.search(pattern, line)
@@ -30,8 +31,18 @@ def parse_log_file(input_file, output_file):
                             match_count += 1
                             timestamp = match.group(1)
                             uid = match.group(2)
-                            print(f"Извлечено: UID={uid}, Timestamp={timestamp}")
-                            writer.writerow([uid, timestamp])
+                            
+                            # Проверяем следующую строку на наличие статуса blacklist
+                            status = "not_blacklisted"  # значение по умолчанию
+                            if i + 1 < len(lines):
+                                next_line = lines[i + 1]
+                                if "Not Blacklisting" in next_line:
+                                    status = "not_blacklisted"
+                                elif "Blacklisting" in next_line:
+                                    status = "blacklisted"
+                            
+                            print(f"Извлечено: UID={uid}, Timestamp={timestamp}, Status={status}")
+                            writer.writerow([uid, timestamp, status])
                         else:
                             print(f"Не удалось извлечь данные из строки: {line.strip()}")
                 
