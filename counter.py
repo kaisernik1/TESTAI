@@ -8,6 +8,7 @@ def parse_log_file(input_file, output_file):
     request_pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}).*?Incoming request: UID (\d+)"
     scraping_pattern = r"Received scraping request: (\d+) videos for query '([^']+)'"
     topic_pattern = r"Random topic from list: (.*)"
+    augmented_pattern = r"Augmented query: '.*?' -> '(.*?)(?<!\\)'\\"
     
     try:
         print(f"Начинаем обработку файла: {input_file}")
@@ -16,7 +17,7 @@ def parse_log_file(input_file, output_file):
         with open(output_file, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
             # Записываем заголовки
-            writer.writerow(['UID', 'Timestamp', 'Status', 'Videos Count', 'Query', 'Random Topic'])
+            writer.writerow(['UID', 'Timestamp', 'Status', 'Videos Count', 'Query', 'Random Topic', 'Augmented Query 1', 'Augmented Query 2'])
             
             # Читаем и обрабатываем лог-файл
             with open(input_file, 'r', encoding='utf-8') as logfile:
@@ -39,13 +40,15 @@ def parse_log_file(input_file, output_file):
                             videos_count = ""
                             query = ""
                             random_topic = ""
+                            augmented_query1 = ""
+                            augmented_query2 = ""
                             
                             if i + 1 < len(lines):
                                 next_line = lines[i + 1]
                                 if "Not Blacklisting" in next_line:
                                     status = "not_blacklisted"
-                                    # Ищем строки с информацией о скрапинге и случайной теме
-                                    for j in range(i + 2, min(i + 10, len(lines))):  # ищем в следующих 10 строках
+                                    # Ищем строки с информацией о скрапинге, теме и augmented queries
+                                    for j in range(i + 2, min(i + 15, len(lines))):  # увеличил диапазон поиска до 15 строк
                                         if "Received scraping request" in lines[j]:
                                             scraping_match = re.search(scraping_pattern, lines[j])
                                             if scraping_match:
@@ -55,11 +58,22 @@ def parse_log_file(input_file, output_file):
                                             topic_match = re.search(topic_pattern, lines[j])
                                             if topic_match:
                                                 random_topic = topic_match.group(1).strip()
+                                        elif "Augmented query:" in lines[j]:
+                                            if not augmented_query1:
+                                                aug_match = re.search(augmented_pattern, lines[j])
+                                                if aug_match:
+                                                    augmented_query1 = aug_match.group(1).strip()
+                                            elif not augmented_query2:
+                                                aug_match = re.search(augmented_pattern, lines[j])
+                                                if aug_match:
+                                                    augmented_query2 = aug_match.group(1).strip()
                                 elif "Blacklisting" in next_line:
                                     status = "blacklisted"
                             
                             print(f"Извлечено: UID={uid}, Timestamp={timestamp}, Status={status}, Videos={videos_count}, Query={query}, Topic={random_topic}")
-                            writer.writerow([uid, timestamp, status, videos_count, query, random_topic])
+                            print(f"Augmented Query 1: {augmented_query1}")
+                            print(f"Augmented Query 2: {augmented_query2}")
+                            writer.writerow([uid, timestamp, status, videos_count, query, random_topic, augmented_query1, augmented_query2])
                         else:
                             print(f"Не удалось извлечь данные из строки: {line.strip()}")
                 
