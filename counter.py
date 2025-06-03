@@ -11,6 +11,7 @@ def parse_log_file(input_file, output_file):
     topic_pattern = r"Random topic from list: (.*)"
     augmented_pattern = r"Augmented query: '.*?' -> '(.*?)(?<!\\)'\\"
     time_pattern = r"Time to (.*?): ([\d.]+)s"
+    sorted_videos_pattern = r"Sorting videos by query relevance took.*?: \[(.*?)\]"
     
     try:
         print(f"Начинаем обработку файла: {input_file}")
@@ -27,9 +28,9 @@ def parse_log_file(input_file, output_file):
                 'Time to get ImageBind inputs', 'Time to get ImageBind embeddings'
             ]
             
-            # Добавляем заголовки для видео ID и их значений
+            # Добавляем заголовки для видео ID, значений и флагов выбора
             for i in range(1, 13):  # Предполагаем максимум 12 видео
-                headers.extend([f'Video ID {i}', f'Video Value {i}'])
+                headers.extend([f'Video ID {i}', f'Video Value {i}', f'Video Selected {i}'])
             
             writer.writerow(headers)
             
@@ -69,6 +70,7 @@ def parse_log_file(input_file, output_file):
                             
                             # Инициализируем список для хранения видео
                             video_data = []
+                            selected_videos = []
                             
                             if i + 1 < len(lines):
                                 next_line = lines[i + 1]
@@ -119,6 +121,13 @@ def parse_log_file(input_file, output_file):
                                                     except Exception as e:
                                                         print(f"Ошибка при парсинге массива видео: {e}")
                                                         print(f"Проблемная строка: {array_line}")
+                                        elif "Sorting videos by query relevance took" in lines[j]:
+                                            # Ищем список выбранных видео
+                                            sorted_match = re.search(sorted_videos_pattern, lines[j])
+                                            if sorted_match:
+                                                selected_videos_str = sorted_match.group(1)
+                                                selected_videos = [vid.strip("'") for vid in selected_videos_str.split(', ')]
+                                                print(f"Найден список выбранных видео: {selected_videos}")
                                         j += 1
                                 elif "Blacklisting" in next_line:
                                     status = "blacklisted"
@@ -128,6 +137,7 @@ def parse_log_file(input_file, output_file):
                             print(f"Augmented Query 2: {augmented_query2}")
                             print("Временные метрики:", time_metrics)
                             print("Видео данные:", video_data)
+                            print("Выбранные видео:", selected_videos)
                             
                             # Формируем строку для CSV
                             row = [
@@ -141,13 +151,13 @@ def parse_log_file(input_file, output_file):
                                 time_metrics['get ImageBind embeddings']
                             ]
                             
-                            # Добавляем данные о видео
+                            # Добавляем данные о видео и флаги выбора
                             for video_id, video_value in video_data:
-                                row.extend([video_id, str(video_value)])
+                                row.extend([video_id, str(video_value), str(video_id in selected_videos).lower()])
                             
                             # Добавляем пустые значения, если видео меньше 12
                             while len(row) < len(headers):
-                                row.extend(['', ''])
+                                row.extend(['', '', ''])
                             
                             writer.writerow(row)
                         else:
