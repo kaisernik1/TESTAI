@@ -12,6 +12,7 @@ def parse_log_file(input_file, output_file):
     augmented_pattern = r"Augmented query: '.*?' -> '(.*?)(?<!\\)'\\"
     time_pattern = r"Time to (.*?): ([\d.]+)s"
     sorted_videos_pattern = r"Sorting videos by query relevance took.*?: \[(.*?)\]"
+    av_score_pattern = r"Average scores for \[\d+\] videos \[[\d.]+\] -> \[([\d.]+)\]"
     
     try:
         print(f"Начинаем обработку файла: {input_file}")
@@ -31,6 +32,9 @@ def parse_log_file(input_file, output_file):
             # Добавляем заголовки для видео ID, значений и флагов выбора
             for i in range(1, 13):  # Предполагаем максимум 12 видео
                 headers.extend([f'Video ID {i}', f'Video Value {i}', f'Video Selected {i}'])
+            
+            # Добавляем AvScore в конец
+            headers.append('AvScore')
             
             writer.writerow(headers)
             
@@ -71,6 +75,7 @@ def parse_log_file(input_file, output_file):
                             # Инициализируем список для хранения видео
                             video_data = []
                             selected_videos = []
+                            av_score = ''  # Для хранения среднего score
                             
                             if i + 1 < len(lines):
                                 next_line = lines[i + 1]
@@ -128,6 +133,11 @@ def parse_log_file(input_file, output_file):
                                                 selected_videos_str = sorted_match.group(1)
                                                 selected_videos = [vid.strip("'") for vid in selected_videos_str.split(', ')]
                                                 print(f"Найден список выбранных видео: {selected_videos}")
+                                        elif "Average scores for" in lines[j]:
+                                            av_score_match = re.search(av_score_pattern, lines[j])
+                                            if av_score_match:
+                                                av_score = av_score_match.group(1)
+                                                print(f"Найден средний score: {av_score}")
                                         j += 1
                                 elif "Blacklisting" in next_line:
                                     status = "blacklisted"
@@ -156,8 +166,11 @@ def parse_log_file(input_file, output_file):
                                 row.extend([video_id, str(video_value), str(video_id in selected_videos).lower()])
                             
                             # Добавляем пустые значения, если видео меньше 12
-                            while len(row) < len(headers):
+                            while len(row) < len(headers) - 1:  # -1 потому что последний столбец это AvScore
                                 row.extend(['', '', ''])
+                            
+                            # Добавляем AvScore в конец
+                            row.append(av_score)
                             
                             writer.writerow(row)
                         else:
